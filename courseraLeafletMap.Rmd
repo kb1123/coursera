@@ -1,0 +1,86 @@
+---
+title: "map Assignment"
+author: "Kameron Billingsley"
+date: "12/30/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Clade X Spread
+
+This map shows the hypothetical spread of "Clade X" a fictional parainfluenza created by the John Hopkins Center for Health Security to explore the consequences of a public health crisis reaching across the globe. All data are original, generated strictly for the purposes of this project and are not the work of John Hopkins center for Health Security
+
+```{r leaf, echo=FALSE, warning=FALSE}
+
+library(leaflet)
+library(shiny)
+library(shinythemes)
+set.seed(1)
+
+cntr <- c(2:400)
+cntr2 <- c(1:45)
+countUp = matrix(nrow=400, ncol=45)
+
+for (i in cntr2)
+{
+    countUp[1,i] <- abs(rnorm(1))
+    for (k in cntr)
+    {
+        countUp[k,i]<-countUp[k-1,i]+abs(rnorm(1))
+    }
+}
+
+countUp2<-countUp
+
+set.seed(1)
+funny_guy<-sample(0:1, ncol(countUp), replace=TRUE)
+fat_man<-sample(50:200, ncol(countUp), replace=TRUE)
+fat_funny_guy<-fat_man*funny_guy
+for (i in cntr2)
+{
+    tmp<-countUp[,i]
+    tmp[(fat_funny_guy[i]):nrow(countUp)]<-tmp[1:(nrow(countUp)-(fat_funny_guy[i]+1))]
+    tmp[1:fat_funny_guy[i]]<-0
+    countUp[,i]<-tmp
+    
+    tmp<-countUp2[,i]
+    tmp[(fat_funny_guy[i]+21):nrow(countUp2)]<-tmp[1:(nrow(countUp2)-(fat_funny_guy[i]+20))]
+    tmp[1:(fat_funny_guy[i]+20)]<-0
+    countUp2[,i]<-tmp
+}
+countUp2<-countUp2*0.6
+
+
+
+
+citiesList<-read.csv("citiesList.csv")
+
+cl<-citiesList
+cl$lng<-cl$lng*-1
+cl$infected<-countUp[1,]
+cl$deceased<-countUp2[1,]
+cl$lat<-as.numeric(cl$lat)
+cl$lng<-as.numeric(cl$lng)
+
+cl$infected <- countUp[200,]
+cl$deceased <- countUp2[200,]
+
+leaflet(cl) %>%
+            addProviderTiles(providers$Stamen.TonerLite,
+                             options = providerTileOptions(noWrap = TRUE)
+            )  %>%
+            fitBounds(~min(lng), ~min(lat), ~max(lng), ~max(lat))%>%
+
+
+
+
+            addCircles(radius = ~infected*700, weight = 1, color = 'red',
+                   fillColor = 'red', fillOpacity = 0.2, popup = paste(cl$city,"| % infected:",as.character(round((cl$infected/7),3))), lat = ~lat, lng = ~lng
+            )%>%
+        addCircles(radius = ~deceased*700, weight = 1, color = 'black',
+                   fillColor = 'black', fillOpacity = 0.2,  popup = paste(cl$city,"| %of infected deceased:",as.character(round((cl$deceased/cl$infected)*100,3))), lat = ~lat, lng = ~lng
+        )
+```
