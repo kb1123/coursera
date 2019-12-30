@@ -1,0 +1,71 @@
+---
+title: "Optimizing Workout with Wearable Tech"
+author: "Kameron Billingsley"
+date: "12/15/2019"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Overview
+
+Wearable technology has openned up opportunities to quantify and qualify athletic performance of users. In this report, we build a ML model that accurately classifies correct and incorrect attempts at various exercises using accelerometer data onboard our test athletes and some of the equipment they are using
+
+## The Data
+
+The data provided has many mostly-empty columns due to the numerical treatment given by the original researchers. We start by scurbbing these columns
+```{r start, echo=TRUE}
+pml_training<-read.csv("C:/Users/Kameron/Documents/R/courseraPlaygrnd/pml-training.csv")
+pml_train_clean<-pml_training[,which(pml_training[1,]!="NA" & pml_training[1,]!="")] #first row was mostly empty. keep only columns with data!
+
+```
+
+Next we take out all the unnecessary labels. Timestamps, names, column numbers all go. Only accelerometer data stays
+
+```{r two, echo=TRUE}
+
+pml_train_clean<-pml_train_clean[,-c(1:7)]
+
+```
+
+Now we look at a correlation matrix to see if data reduction would yield any advantage
+
+```{r three, echo=TRUE}
+
+library(caret)
+library(corrplot)
+cplotM<-cor(abs(pml_train_clean[,-53]))#exclude the result variable
+diag(cplotM)<-0
+corrplot(cplotM, method="shade", tl.cex=.4)
+
+```
+
+From the matrix there are a few variables that correlate very strongly with each other, making this data set a good candidate for data reduction. For our purposes, we will use principal component analysis (PCA) to capture 95% of the variance in (hopefully) fewer component variables
+
+```{r four, echo=TRUE}
+
+proc<-preProcess(pml_train_clean[,-53], method="pca")
+proc #view the results
+
+```
+
+We were able to get 95% of the variance in just 25 components, a significant improvement over the original 52 variables. This will make our model leaner and faster during training and run times
+
+## The Model
+
+There are many good options when considering a classification algorithm. Random forest offers high accuracy at the cost of low speed and poor interpretability. Because speed and interpretability are not really important to us here, those costs are justified
+
+```{r five, echo=TRUE}
+
+tc<-trainControl(method="cv", number=7) #setup for 7-fold cross valiation
+nuMod<-train(y=pml_train_clean$classe, x=predict(proc, pml_train_clean[,-53]), method="rf", trControl=tc)
+nuMod #view summary
+
+
+```
+
+From the summary we get 98.1% accuracy for classification. Not bad! Note that the 98% number comes from the model where mtry = 2; that means each of the random trees had two branches. Other values were tried with not so much accuracy. These results were evaluated by way of cross-validation. In our case we went with seven folds, generally considered a good number. Anything over 10 starts to apporoximate leave-one-out valiation in terms of bias and variance
